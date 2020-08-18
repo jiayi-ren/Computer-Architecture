@@ -6,6 +6,8 @@ HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
 MUL = 0b10100010
+PUSH = 0b01000101
+POP = 0b01000110
 
 class CPU:
     """Main CPU class."""
@@ -13,14 +15,17 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         self.reg = [0] * 8
-        self.ram = [0] * 25
+        self.ram = [0] * 255
         self.pc = 0
         self.running = True
+        self.sp = len(self.ram)
         self.branchtable = {
             HLT: self.HLT,
             LDI: self.LDI,
             PRN: self.PRN,
-            MUL: self.MUL
+            MUL: self.MUL,
+            PUSH: self.PUSH,
+            POP: self.POP
         }
 
     def load(self):
@@ -72,6 +77,17 @@ class CPU:
     def MUL(self, operand_a, operand_b):
         self.reg[operand_a] *= self.reg[operand_b]
         self.pc += 3
+    
+    def PUSH(self, operand_a, operand_b):
+        self.sp -= 1
+        self.ram_write(self.sp, self.reg[operand_a])
+        self.pc += 2
+
+    def POP(self, operand_a, operand_b):
+        self.reg[operand_a] = self.ram_read(self.sp)
+        self.ram_write(self.sp, 0)
+        self.sp += 1
+        self.pc += 2
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -107,7 +123,7 @@ class CPU:
         
         while self.running:
             ir = self.ram[self.pc]
-
+            # self.trace()
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
             # if ir == 0b10000010: # LDI R0,8
