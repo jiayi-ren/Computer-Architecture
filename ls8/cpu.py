@@ -15,7 +15,7 @@ class CPU:
     def __init__(self):
         """Construct a new CPU."""
         self.reg = [0] * 8
-        self.ram = [0] * 255
+        self.ram = [0] * 256
         self.pc = 0
         self.running = True
         self.sp = len(self.ram)
@@ -68,26 +68,26 @@ class CPU:
 
     def LDI(self, operand_a, operand_b):
         self.reg[operand_a] = operand_b
-        self.pc += 3
+        # self.pc += 3
 
     def PRN(self, operand_a, operand_b):
         print(self.reg[operand_a])
-        self.pc += 2
+        # self.pc += 2
 
     def MUL(self, operand_a, operand_b):
         self.reg[operand_a] *= self.reg[operand_b]
-        self.pc += 3
+        # self.pc += 3
     
     def PUSH(self, operand_a, operand_b):
         self.sp -= 1
         self.ram_write(self.sp, self.reg[operand_a])
-        self.pc += 2
+        # self.pc += 2
 
     def POP(self, operand_a, operand_b):
         self.reg[operand_a] = self.ram_read(self.sp)
         self.ram_write(self.sp, 0)
         self.sp += 1
-        self.pc += 2
+        # self.pc += 2
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -139,3 +139,7 @@ class CPU:
             #     self.pc += 3
             if ir in self.branchtable:
                 self.branchtable[ir](operand_a,operand_b)
+
+            n_of_arg = ir >> 6
+            size_instr = n_of_arg + 1
+            self.pc += size_instr
