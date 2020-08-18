@@ -48,14 +48,34 @@ class CPU:
         # for instruction in program:
         #     self.ram[address] = instruction
         #     address += 1
+        if len(sys.argv) != 2:
+            print("usage: ls8.py progname")
+            sys.exit(1)
+        try:
+            filename = sys.argv[1]
+            with open(filename) as f:
+                for l in f:
+                    words = l.split()
+                    if len(words) == 0:
+                        continue
+                    if words[0] == '#':
+                        continue
+                    try:
+                        self.ram[address] = int(words[0], 2)
+                        address += 1
+                    except ValueError:
+                        print(f"Invalid number: {words[0]}")
+                        sys.exit(2)
+                    except IndexError:
+                        print(f"Invalid index")
+                        sys.exit(3)
+        except FileNotFoundError:
+            print(f"Couldn't find {sys.argv[1]}")
+            sys.exit(4)
 
-        filename = sys.argv[1]
-        with open(filename) as f:
-            for l in f:
-                words = l.split()
-                if len(words) > 0 and words[0] != '#':
-                    self.ram[address] = int(words[0], 2)
-                    address += 1
+        if address == 0:
+            print("Program was empty")
+            sys.exit(5)
 
     def ram_read(self, mar):
         return self.ram[mar]
