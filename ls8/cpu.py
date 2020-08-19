@@ -5,9 +5,12 @@ import sys
 HLT = 0b00000001
 LDI = 0b10000010
 PRN = 0b01000111
+ADD = 0b10100000
 MUL = 0b10100010
 PUSH = 0b01000101
 POP = 0b01000110
+CALL = 0b01010000
+RET = 0b00010001
 
 class CPU:
     """Main CPU class."""
@@ -23,9 +26,12 @@ class CPU:
             HLT: self.HLT,
             LDI: self.LDI,
             PRN: self.PRN,
+            ADD: self.ADD,
             MUL: self.MUL,
             PUSH: self.PUSH,
-            POP: self.POP
+            POP: self.POP,
+            CALL: self.CALL,
+            RET: self.RET
         }
 
     def load(self):
@@ -94,6 +100,9 @@ class CPU:
         print(self.reg[operand_a])
         # self.pc += 2
 
+    def ADD(self, operand_a, operand_b):
+        self.alu("ADD", operand_a, operand_b)
+
     def MUL(self, operand_a, operand_b):
         self.alu("MUL", operand_a, operand_b)
         # self.pc += 3
@@ -108,6 +117,15 @@ class CPU:
         self.ram_write(self.sp, 0)
         self.sp += 1
         # self.pc += 2
+    
+    def CALL(self, operand_a, operand_b):
+        self.reg[7] = self.pc + 2
+        self.PUSH(7, operand_b)
+        self.pc = self.reg[operand_a]
+
+    def RET(self, operand_a, operand_b):
+        self.pc = self.ram_read(self.sp) -1
+        self.POP(7, operand_b)
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -162,6 +180,7 @@ class CPU:
             if ir in self.branchtable:
                 self.branchtable[ir](operand_a,operand_b)
 
-            n_of_arg = ir >> 6
-            size_instr = n_of_arg + 1
-            self.pc += size_instr
+            if ir != CALL:
+                n_of_arg = ir >> 6
+                size_instr = n_of_arg + 1
+                self.pc += size_instr
