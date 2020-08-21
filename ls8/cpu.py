@@ -1,6 +1,7 @@
 """CPU functionality."""
 
 import sys
+import datetime
 
 HLT = 0b00000001
 LDI = 0b10000010
@@ -11,6 +12,10 @@ PUSH = 0b01000101
 POP = 0b01000110
 CALL = 0b01010000
 RET = 0b00010001
+CMP = 0b10100111
+JMP = 0b01010100
+JNE = 0b01010110
+JEQ = 0b01010101
 
 class CPU:
     """Main CPU class."""
@@ -21,7 +26,8 @@ class CPU:
         self.ram = [0] * 256
         self.pc = 0
         self.running = True
-        self.sp = len(self.ram)
+        # self.sp = 0xF4
+        self.reg[7] = 0xF4
         self.branchtable = {
             HLT: self.HLT,
             LDI: self.LDI,
@@ -31,8 +37,13 @@ class CPU:
             PUSH: self.PUSH,
             POP: self.POP,
             CALL: self.CALL,
-            RET: self.RET
+            RET: self.RET,
+            CMP: self.CMP,
+            JMP: self.JMP,
+            JEQ: self.JEQ,
+            JNE: self.JNE
         }
+        self.fl = [0] * 8
 
     def load(self):
         """Load a program into memory."""
@@ -96,7 +107,7 @@ class CPU:
         self.reg[operand_a] = operand_b
         # self.pc += 3
 
-    def PRN(self, operand_a, operand_b):
+    def PRN(self, operand_a, operand_b = None):
         print(self.reg[operand_a])
         # self.pc += 2
 
@@ -107,25 +118,41 @@ class CPU:
         self.alu("MUL", operand_a, operand_b)
         # self.pc += 3
     
-    def PUSH(self, operand_a, operand_b):
-        self.sp -= 1
-        self.ram_write(self.sp, self.reg[operand_a])
+    def PUSH(self, operand_a, operand_b = None):
+        self.reg[7] -= 1
+        self.ram_write(self.reg[7], self.reg[operand_a])
         # self.pc += 2
 
-    def POP(self, operand_a, operand_b):
-        self.reg[operand_a] = self.ram_read(self.sp)
-        self.ram_write(self.sp, 0)
-        self.sp += 1
+    def POP(self, operand_a, operand_b = None):
+        self.reg[operand_a] = self.ram_read(self.reg[7])
+        # self.ram_write(self.reg[7], 0)
+        self.reg[7] += 1
         # self.pc += 2
     
     def CALL(self, operand_a, operand_b):
-        self.reg[7] = self.pc + 2
-        self.PUSH(7, operand_b)
+        self.reg[4] = self.pc + 2
+        self.PUSH(4, operand_b)
         self.pc = self.reg[operand_a]
 
-    def RET(self, operand_a, operand_b):
-        self.pc = self.ram_read(self.sp) -1
-        self.POP(7, operand_b)
+    def RET(self, operand_a = None, operand_b = None):
+        # print(self.ram_read(self.reg[7]))
+        self.pc = self.ram_read(self.reg[7])
+        # self.POP(4, operand_b)
+
+    def CMP(self, operand_a, operand_b):
+        # self.alu("SUB", operand_a, operand_b)
+        self.alu("CMP", operand_a, operand_b)
+    
+    def JMP(self, operand_a, operand_b = None):
+        self.pc = self.reg[operand_a]
+    
+    def JEQ(self, operand_a, operand_b = None):
+        ir = self.ram[self.pc]
+        self.pc = self.reg[operand_a] if self.fl[7] else self.pc+(ir >> 6) + 1
+
+    def JNE(self, operand_a, operand_b = None):
+        ir = self.ram[self.pc]
+        self.pc = self.reg[operand_a] if not self.fl[7] else self.pc+(ir >> 6) + 1
 
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
@@ -135,6 +162,18 @@ class CPU:
         #elif op == "SUB": etc
         elif op == "MUL":
             self.reg[reg_a] *= self.reg[reg_b]
+        elif op == "SUB":
+            self.reg[reg_a] -= self.reg[reg_b]
+        elif op == "DIV":
+            self.reg[reg_a] /= self.reg[reg_b]
+        elif op == "CMP":
+            if self.reg[reg_a] - self.reg[reg_b] == 0:
+                self.fl[7] = 1
+            elif self.reg[reg_a] - self.reg[reg_b] < 0:
+                self.fl[5] = 1
+            else:
+                self.fl[6] = 1
+        
         else:
             raise Exception("Unsupported ALU operation")
 
@@ -160,12 +199,15 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-        
+
         while self.running:
             ir = self.ram[self.pc]
-            # self.trace()
+            
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
+            # print("opa ", operand_a, "  ", "opb ", operand_b)
+            # if self.pc == 17:
+            #     sys.exit(1)
             # if ir == 0b10000010: # LDI R0,8
             #     self.LDI(operand_a, operand_b)
             #     
@@ -179,8 +221,8 @@ class CPU:
             #     self.pc += 3
             if ir in self.branchtable:
                 self.branchtable[ir](operand_a,operand_b)
-
-            if ir != CALL:
-                n_of_arg = ir >> 6
-                size_instr = n_of_arg + 1
-                self.pc += size_instr
+                # print(ir, "bit", ir & 0b00010000)
+                if ir != CALL and ir != RET and ir != JMP and ir != JEQ and ir != JNE:
+                    n_of_arg = ir >> 6
+                    size_instr = n_of_arg + 1
+                    self.pc += size_instr
