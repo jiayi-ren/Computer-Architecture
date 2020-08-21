@@ -23,6 +23,9 @@ NOT = 0b01101001
 SHL = 0b10101100
 SHR = 0b10101101
 MOD = 0b10100100
+ST = 0b10000100
+PRA = 0b01001000
+IRET = 0b00010011
 
 class CPU:
     """Main CPU class."""
@@ -55,7 +58,10 @@ class CPU:
             NOT: self.NOT,
             SHL: self.SHL,
             SHR: self.SHR,
-            MOD: self.MOD
+            MOD: self.MOD,
+            ST: self.ST,
+            PRA: self.PRA,
+            IRET: self.IRET
         }
         self.fl = [0] * 8
 
@@ -189,6 +195,32 @@ class CPU:
     def MOD(self, operand_a, operand_b):
         self.alu("MOD", operand_a, operand_b)
 
+    def ST(self, operand_a, operand_b):
+        self.ram_write(self.reg[operand_a], self.reg[operand_b])
+
+    def PRA(self, operand_a, operand_b):
+        print(chr(self.reg[operand_a]))
+
+    def IRET(self, operand_a, operand_b):       
+        # R6-R0
+        for i in range(len(self.reg)-1):
+            self.POP(i)
+        reg = list(self.reg) # temp Register
+        sp = self.reg[7] #temp stack pointer
+        # FL
+        for i in range(len(self.fl)):
+            self.POP(i)
+            sp += 1
+        fl = list(self.reg) # temp FL
+        # Return Address
+        self.POP(0)
+        sp += 1
+        # pop back
+        self.reg = reg
+        self.fl = fl
+        self.pc = self.reg[0]
+        self.reg[7] = sp #reassign stack pointer
+
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
@@ -228,6 +260,20 @@ class CPU:
                 self.HLT(reg_a, reg_b)
         else:
             raise Exception("Unsupported ALU operation")
+    
+    def timer_interrupt(self, operand_a):
+        if self.reg[6] == 1:
+            self.reg[6] = 0
+            # Return Address
+            self.reg[2] = operand_a
+            self.PUSH(2)
+            # FL
+            for i in range(len(self.fl)):
+                self.PUSH(len(self.fl)-i-1)
+            # R6 - R0
+            for i in range(len(self.reg)-1):
+                self.PUSH(len(self.reg)-i-2)
+            self.pc = self.ram_read(0xF8)
 
     def trace(self):
         """
@@ -251,10 +297,19 @@ class CPU:
 
     def run(self):
         """Run the CPU."""
-
+        start = datetime.datetime.now()
         while self.running:
             ir = self.ram[self.pc]
-            
+            # timer interrupts
+            now = datetime.datetime.now()
+            elapsed = now - start
+            self.reg[6] = 0
+            if elapsed.seconds == 1:
+                start = now
+                self.reg[6] = 0b0000001
+                self.timer_interrupt(self.pc)
+                ir = self.ram[self.pc]
+
             operand_a = self.ram_read(self.pc + 1)
             operand_b = self.ram_read(self.pc + 2)
             # print("opa ", operand_a, "  ", "opb ", operand_b)
