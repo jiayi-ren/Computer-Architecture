@@ -16,6 +16,13 @@ CMP = 0b10100111
 JMP = 0b01010100
 JNE = 0b01010110
 JEQ = 0b01010101
+AND = 0b10101000
+OR = 0b10101010
+XOR = 0b10101011
+NOT = 0b01101001
+SHL = 0b10101100
+SHR = 0b10101101
+MOD = 0b10100100
 
 class CPU:
     """Main CPU class."""
@@ -41,7 +48,14 @@ class CPU:
             CMP: self.CMP,
             JMP: self.JMP,
             JEQ: self.JEQ,
-            JNE: self.JNE
+            JNE: self.JNE,
+            AND: self.AND,
+            OR: self.OR,
+            XOR: self.XOR,
+            NOT: self.NOT,
+            SHL: self.SHL,
+            SHR: self.SHR,
+            MOD: self.MOD
         }
         self.fl = [0] * 8
 
@@ -154,6 +168,27 @@ class CPU:
         ir = self.ram[self.pc]
         self.pc = self.reg[operand_a] if not self.fl[7] else self.pc+(ir >> 6) + 1
 
+    def AND(self, operand_a, operand_b):
+        self.alu("AND", operand_a, operand_b)
+
+    def OR(self, operand_a, operand_b):
+        self.alu("OR", operand_a, operand_b)
+
+    def XOR(self, operand_a, operand_b):
+        self.alu("XOR", operand_a, operand_b)
+
+    def NOT(self, operand_a, operand_b):
+        self.alu("NOT", operand_a, operand_b)
+
+    def SHL(self, operand_a, operand_b):
+        self.alu("SHL", operand_a, operand_b)
+        
+    def SHR(self, operand_a, operand_b):
+        self.alu("SHR", operand_a, operand_b)
+
+    def MOD(self, operand_a, operand_b):
+        self.alu("MOD", operand_a, operand_b)
+
     def alu(self, op, reg_a, reg_b):
         """ALU operations."""
 
@@ -173,7 +208,24 @@ class CPU:
                 self.fl[5] = 1
             else:
                 self.fl[6] = 1
-        
+        elif op == "AND":
+            self.reg[reg_a] &= self.reg[reg_b]
+        elif op == "OR":
+            self.reg[reg_a] |= self.reg[reg_b]
+        elif op == "XOR":
+            self.reg[reg_a] ^= self.reg[reg_b]
+        elif op == "NOT":
+            self.reg[reg_a] = ~self.reg[reg_a]
+        elif op == "SHL":
+            self.reg[reg_a] = self.reg[reg_a] << self.reg[reg_b]
+        elif op == "SHR":
+            self.reg[reg_a] = self.reg[reg_a] >> self.reg[reg_b]
+        elif op == "MOD":
+            if self.reg[reg_b] != 0:
+                self.reg[reg_a] %= self.reg[reg_b]
+            else:
+                print("Invalid divisor")
+                self.HLT(reg_a, reg_b)
         else:
             raise Exception("Unsupported ALU operation")
 
